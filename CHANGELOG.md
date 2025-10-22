@@ -5,6 +5,37 @@ All notable changes to CC Switch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2025-10-22
+
+### ✨ New Features
+
+- **Proxy Mode** - New operation mode with local transparent proxy for seamless provider switching
+  - Start local proxy server (Claude: port 35173, Codex: port 35174) to intercept API requests
+  - Automatic provider switching based on enabled provider list order
+  - Configurable retry count when a provider request fails
+  - Drag-and-drop provider sorting to adjust priority
+  - Support both Claude Code and Codex applications
+  - Auto-rewrite `ANTHROPIC_AUTH_TOKEN`/`OPENAI_API_KEY` and `ANTHROPIC_BASE_URL`/`base_url` headers
+  - Seamless failover between providers without modifying config files
+  - Switch between write mode and proxy mode anytime in settings
+
+### 🔧 Improvements
+
+- Enhanced provider management with `proxy_enabled` field
+- New settings options for operation mode and proxy retry count
+- Added UI controls to toggle proxy status for each provider
+- Common config synchronization for proxy mode
+- Improved error handling and logging in proxy server
+
+### 📦 Technical Details
+
+- New `proxy.rs` module with Axum-based HTTP/HTTPS proxy server
+- Hyper and Hyper-Rustls for robust HTTP client with TLS support
+- Tower middleware for service composition
+- Automatic provider credential extraction and header rewriting
+- Hop-by-hop headers filtering for proper proxy forwarding
+- User-Agent based application type detection
+
 ## [3.5.0] - 2025-01-15
 
 ### ✨ New Features

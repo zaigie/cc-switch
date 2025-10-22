@@ -1,12 +1,14 @@
 # Claude Code & Codex 供应商切换器
 
-[![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](https://github.com/farion1231/cc-switch/releases)
+[![Version](https://img.shields.io/badge/version-3.6.0-blue.svg)](https://github.com/farion1231/cc-switch/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/farion1231/cc-switch/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
 
 一个用于管理和切换 Claude Code 与 Codex 不同供应商配置的桌面应用。
 
 > **📢 重要通知**：CC Switch 即将进行大规模重构，请暂缓提交新的 PR，感谢理解与配合！
+
+> v3.6.0 ：新增 **代理模式** 功能，允许使用本地透传代理实现无缝 Provider 切换，无需频繁修改配置文件。
 
 > v3.5.0 ：新增 **MCP 管理**、**配置导入/导出**、**端点速度测试**功能，完善国际化覆盖，新增 Longcat、kat-coder 预设，标准化发布文件命名规范。
 
@@ -20,8 +22,14 @@
 
 > v3.0.0 重大更新：从 Electron 完全迁移到 Tauri 2.0，应用体积显著降低、启动性能大幅提升。
 
-## 功能特性（v3.5.0）
+## 功能特性（v3.6.0）
 
+- **代理模式 (Proxy Mode)**：全新运行模式，无需频繁修改配置文件
+  - 启动本地透传代理服务器，自动拦截 API 请求
+  - 根据启用的供应商列表按顺序自动切换（失败自动重试下一个）
+  - 支持配置重试次数，提高服务可用性
+  - 与写入模式可随时切换，满足不同使用场景
+  - 支持 Claude Code 和 Codex 两种应用类型
 - **MCP (Model Context Protocol) 管理**：完整的 MCP 服务器配置管理系统
   - 支持 stdio 和 http 服务器类型，并提供命令校验
   - 内置常用 MCP 服务器模板（如 mcp-fetch 等）
@@ -89,13 +97,30 @@ brew upgrade --cask cc-switch
 
 ## 使用说明
 
+### 运行模式
+
+CC-Switch 提供两种运行模式，可在设置中切换：
+
+#### 写入模式（默认）
+传统的配置文件写入方式：
 1. 点击"添加供应商"添加你的 API 配置
 2. 切换方式：
    - 在主界面选择供应商后点击切换
-   - 或通过“系统托盘（菜单栏）”直接选择目标供应商，立即生效
-3. 切换会写入对应应用的“live 配置文件”（Claude：`settings.json`；Codex：`auth.json` + `config.toml`）
+   - 或通过"系统托盘（菜单栏）"直接选择目标供应商，立即生效
+3. 切换会写入对应应用的"live 配置文件"（Claude：`settings.json`；Codex：`auth.json` + `config.toml`）
 4. 重启或新开终端以确保生效
-5. 若需切回官方登录，在预设中选择“官方登录”并切换即可；重启终端后按官方流程登录
+5. 若需切回官方登录，在预设中选择"官方登录"并切换即可；重启终端后按官方流程登录
+
+#### 代理模式（推荐）
+使用本地透传代理，无需频繁修改配置文件：
+1. 在设置中将"运行模式"切换为"代理模式"
+2. 在供应商列表中选择要启用的供应商（可多选），点击"启用代理"
+3. 已启用的供应商会按排序顺序自动切换（拖拽可调整优先级）
+4. 配置 Claude Code 或 Codex 使用本地代理：
+   - Claude Code: 在 `settings.json` 中设置 `ANTHROPIC_BASE_URL` 为 `http://127.0.0.1:35173`
+   - Codex: 在 `config.toml` 中设置 `base_url` 为 `http://127.0.0.1:35174`
+5. 当某个供应商请求失败时，会自动重试并切换到下一个（可在设置中配置重试次数）
+6. 支持随时在两种模式间切换
 
 ### 检查更新
 
