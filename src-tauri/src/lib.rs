@@ -9,6 +9,7 @@ mod import_export;
 mod mcp;
 mod migration;
 mod provider;
+mod proxy;
 mod settings;
 mod speedtest;
 mod usage_script;
@@ -447,6 +448,27 @@ pub fn run() {
             let _tray = tray_builder.build(app)?;
             // 将同一个实例注入到全局状态，避免重复创建导致的不一致
             app.manage(app_state);
+
+            // 初始化代理服务器
+            proxy::init_proxy_server();
+
+            // 根据设置启动代理服务器
+            let settings = crate::settings::get_settings();
+            if settings.operation_mode == crate::settings::OperationMode::Proxy {
+                let app_state_for_proxy = app.state::<AppState>();
+
+                // 启动时没有通用配置，传入 None
+                if let Err(e) = proxy::switch_to_proxy_mode(app_state_for_proxy.inner(), None, None) {
+                    log::warn!("切换到代理模式失败: {}", e);
+                }
+
+                let app_state_clone = app_state_for_proxy.inner().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = proxy::start_proxy_server(&app_state_clone).await {
+                        log::error!("启动代理服务器失败: {}", e);
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -504,6 +526,10 @@ pub fn run() {
             commands::set_app_config_dir_override,
             // provider sort order management
             commands::update_providers_sort_order,
+            // proxy mode management
+            commands::toggle_proxy_provider,
+            commands::handle_operation_mode_change,
+            commands::sync_proxy_common_config,
             // theirs: config import/export and dialogs
             import_export::export_config_to_file,
             import_export::import_config_from_file,

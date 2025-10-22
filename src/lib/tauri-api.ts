@@ -700,6 +700,61 @@ export const tauriAPI = {
       throw error;
     }
   },
+
+  // 切换供应商的代理启用状态
+  toggleProxyProvider: async (
+    providerId: string,
+    enabled: boolean,
+    app?: AppType,
+  ): Promise<boolean> => {
+    try {
+      return await invoke<boolean>("toggle_proxy_provider", {
+        providerId,  // 驼峰命名
+        provider_id: providerId,  // 下划线命名（兼容）
+        enabled,
+        app_type: app,
+        app,
+      });
+    } catch (error) {
+      console.error("切换供应商代理状态失败:", error);
+      throw error;
+    }
+  },
+
+  // 处理运行模式变更
+  handleOperationModeChange: async (
+    operationMode: string,
+    claudeCommonConfig?: string,
+    codexCommonConfig?: string,
+  ): Promise<boolean> => {
+    try {
+      return await invoke<boolean>("handle_operation_mode_change", {
+        operation_mode: operationMode,
+        operationMode: operationMode,
+        claudeCommonConfig,
+        codexCommonConfig,
+      });
+    } catch (error) {
+      console.error("处理运行模式变更失败:", error);
+      throw error;
+    }
+  },
+
+  // 同步代理模式通用配置
+  syncProxyCommonConfig: async (
+    claudeCommonConfig?: string,
+    codexCommonConfig?: string,
+  ): Promise<boolean> => {
+    try {
+      return await invoke<boolean>("sync_proxy_common_config", {
+        claudeCommonConfig,
+        codexCommonConfig,
+      });
+    } catch (error) {
+      console.error("同步代理模式通用配置失败:", error);
+      throw error;
+    }
+  },
 };
 
 // 创建全局 API 对象，兼容现有代码

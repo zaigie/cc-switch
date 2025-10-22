@@ -1540,3 +1540,118 @@ pub async fn update_providers_sort_order(
 
     Ok(true)
 }
+
+/// 切换供应商的代理启用状态
+#[tauri::command]
+pub async fn toggle_proxy_provider(
+    state: State<'_, AppState>,
+    provider_id: Option<String>,
+    #[allow(non_snake_case)]
+    providerId: Option<String>,
+    enabled: bool,
+    app_type: Option<AppType>,
+    app: Option<String>,
+    #[allow(non_snake_case)]
+    appType: Option<String>,
+) -> Result<bool, String> {
+    let provider_id = provider_id
+        .or(providerId)
+        .ok_or_else(|| "缺少 provider_id 参数".to_string())?;
+
+    let app_type = app_type
+        .or_else(|| app.as_deref().map(|s| s.into()))
+        .or_else(|| appType.as_deref().map(|s| s.into()))
+        .unwrap_or(AppType::Claude);
+
+    let mut config = state
+        .config
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
+    let manager = config
+        .get_manager_mut(&app_type)
+        .ok_or_else(|| format!("应用类型不存在: {:?}", app_type))?;
+
+    if let Some(provider) = manager.providers.get_mut(&provider_id) {
+        provider.proxy_enabled = Some(enabled);
+    } else {
+        return Err(format!("供应商不存在: {}", provider_id));
+    }
+
+    drop(config);
+    state.save()?;
+    Ok(true)
+}
+
+/// 处理运行模式变更（启动/停止代理服务器，更新配置）
+#[tauri::command]
+pub async fn handle_operation_mode_change(
+    state: State<'_, AppState>,
+    operation_mode: Option<String>,
+    #[allow(non_snake_case)]
+    operationMode: Option<String>,
+    #[allow(non_snake_case)]
+    claudeCommonConfig: Option<String>,
+    #[allow(non_snake_case)]
+    codexCommonConfig: Option<String>,
+) -> Result<bool, String> {
+    use crate::settings::OperationMode;
+
+    let operation_mode = operation_mode.or(operationMode).ok_or("缺少 operation_mode 参数")?;
+
+    let mode = if operation_mode == "proxy" {
+        OperationMode::Proxy
+    } else {
+        OperationMode::Write
+    };
+
+    match mode {
+        OperationMode::Proxy => {
+            crate::proxy::switch_to_proxy_mode(
+                state.inner(),
+                claudeCommonConfig.as_deref(),
+                codexCommonConfig.as_deref(),
+            )?;
+
+            let state_clone = state.inner().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = crate::proxy::start_proxy_server(&state_clone).await {
+                    log::error!("启动代理服务器失败: {}", e);
+                }
+            });
+        }
+        OperationMode::Write => {
+            crate::proxy::stop_proxy_server().await?;
+            crate::proxy::switch_to_write_mode(state.inner())?;
+        }
+    }
+
+    Ok(true)
+}
+
+/// 同步代理模式的通用配置（在应用启动时调用）
+#[tauri::command]
+pub async fn sync_proxy_common_config(
+    state: State<'_, AppState>,
+    #[allow(non_snake_case)]
+    claudeCommonConfig: Option<String>,
+    #[allow(non_snake_case)]
+    codexCommonConfig: Option<String>,
+) -> Result<bool, String> {
+
+    // 只在代理模式下同步
+    let settings = crate::settings::get_settings();
+    if settings.operation_mode != crate::settings::OperationMode::Proxy {
+        log::warn!("当前不是代理模式，跳过通用配置同步");
+        return Ok(false);
+    }
+
+    // 调用 switch_to_proxy_mode 来重新生成配置文件
+    crate::proxy::switch_to_proxy_mode(
+        state.inner(),
+        claudeCommonConfig.as_deref(),
+        codexCommonConfig.as_deref(),
+    )?;
+
+    Ok(true)
+}

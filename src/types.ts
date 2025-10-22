@@ -16,6 +16,8 @@ export interface Provider {
   sortIndex?: number; // 排序索引（用于自定义拖拽排序）
   // 可选：供应商元数据（仅存于 ~/.cc-switch/config.json，不写入 live 配置）
   meta?: ProviderMeta;
+  // 代理模式下是否启用此供应商（仅在代理模式下有效）
+  proxyEnabled?: boolean;
 }
 
 export interface AppConfig {
@@ -65,6 +67,9 @@ export interface ProviderMeta {
   usage_script?: UsageScript;
 }
 
+// 运行模式类型
+export type OperationMode = "write" | "proxy";
+
 // 应用设置类型（用于 SettingsModal 与 Tauri API）
 export interface Settings {
   // 是否在系统托盘（macOS 菜单栏）显示图标
@@ -83,6 +88,10 @@ export interface Settings {
   customEndpointsClaude?: Record<string, CustomEndpoint>;
   // Codex 自定义端点列表
   customEndpointsCodex?: Record<string, CustomEndpoint>;
+  // 运行模式：write(写入模式) 或 proxy(代理模式)
+  operationMode?: OperationMode;
+  // 代理模式下的重试次数，默认1，允许0
+  proxyRetryCount?: number;
 }
 
 // MCP 服务器连接参数（宽松：允许扩展字段）

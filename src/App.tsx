@@ -38,6 +38,7 @@ function App() {
   } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMcpOpen, setIsMcpOpen] = useState(false);
+  const [operationMode, setProxyMode] = useState<"write" | "proxy">("write");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 设置通知的辅助函数
@@ -66,10 +67,46 @@ function App() {
     }, duration);
   };
 
+  // 加载代理模式设置
+  useEffect(() => {
+    loadProxyMode();
+  }, []);
+
   // 加载供应商列表
   useEffect(() => {
     loadProviders();
   }, [activeApp]); // 当切换应用时重新加载
+
+  const loadProxyMode = async () => {
+    try {
+      const settings = await window.api.getSettings();
+      const mode = (settings as any).operationMode ?? "write";
+      setProxyMode(mode);
+
+      // 如果是代理模式，立即同步 localStorage 的通用配置到后端
+      if (mode === "proxy") {
+        try {
+          let claudeCommonConfig: string | undefined;
+          let codexCommonConfig: string | undefined;
+
+          try {
+            claudeCommonConfig = window.localStorage.getItem("cc-switch:common-config-snippet") || undefined;
+            codexCommonConfig = window.localStorage.getItem("cc-switch:codex-common-config-snippet") || undefined;
+          } catch {
+            // ignore localStorage errors
+          }
+
+          console.log("[App] 代理模式启动，同步通用配置到后端");
+          await window.api.syncProxyCommonConfig(claudeCommonConfig, codexCommonConfig);
+          console.log("[App] 通用配置同步完成");
+        } catch (error) {
+          console.error("[App] 同步代理模式通用配置失败:", error);
+        }
+      }
+    } catch (error) {
+      console.error("加载代理模式失败:", error);
+    }
+  };
 
   // 清理定时器
   useEffect(() => {
@@ -247,6 +284,7 @@ function App() {
 
   const handleImportSuccess = async () => {
     await loadProviders();
+    await loadProxyMode();
     try {
       await window.api.updateTrayMenu();
     } catch (error) {
@@ -357,6 +395,7 @@ function App() {
               appType={activeApp}
               onNotify={showNotification}
               onProvidersUpdated={loadProviders}
+              operationMode={operationMode}
             />
           </div>
         </div>
@@ -391,7 +430,12 @@ function App() {
 
       {isSettingsOpen && (
         <SettingsModal
-          onClose={() => setIsSettingsOpen(false)}
+          onClose={async () => {
+            setIsSettingsOpen(false);
+            // 关闭设置后刷新代理模式和供应商列表
+            await loadProxyMode();
+            await loadProviders();
+          }}
           onImportSuccess={handleImportSuccess}
           onNotify={showNotification}
         />

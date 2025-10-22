@@ -14,6 +14,20 @@ pub struct CustomEndpoint {
     pub last_used: Option<i64>,
 }
 
+/// 运行模式枚举
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum OperationMode {
+    Write,
+    Proxy,
+}
+
+impl Default for OperationMode {
+    fn default() -> Self {
+        OperationMode::Write
+    }
+}
+
 /// 应用设置结构，允许覆盖默认配置目录
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +51,12 @@ pub struct AppSettings {
     /// Codex 自定义端点列表
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub custom_endpoints_codex: HashMap<String, CustomEndpoint>,
+    /// 运行模式：write(写入模式) 或 proxy(代理模式)
+    #[serde(default, rename = "operationMode")]
+    pub operation_mode: OperationMode,
+    /// 代理模式下的重试次数，默认1，允许0
+    #[serde(default = "default_proxy_retry_count")]
+    pub proxy_retry_count: u32,
 }
 
 fn default_show_in_tray() -> bool {
@@ -45,6 +65,10 @@ fn default_show_in_tray() -> bool {
 
 fn default_minimize_to_tray_on_close() -> bool {
     true
+}
+
+fn default_proxy_retry_count() -> u32 {
+    1
 }
 
 impl Default for AppSettings {
@@ -58,6 +82,8 @@ impl Default for AppSettings {
             language: None,
             custom_endpoints_claude: HashMap::new(),
             custom_endpoints_codex: HashMap::new(),
+            operation_mode: OperationMode::default(),
+            proxy_retry_count: default_proxy_retry_count(),
         }
     }
 }

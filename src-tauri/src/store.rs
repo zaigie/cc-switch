@@ -1,9 +1,10 @@
 use crate::app_config::MultiAppConfig;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// 全局应用状态
+#[derive(Clone)]
 pub struct AppState {
-    pub config: Mutex<MultiAppConfig>,
+    pub config: Arc<Mutex<MultiAppConfig>>,
 }
 
 impl AppState {
@@ -15,7 +16,7 @@ impl AppState {
         });
 
         Self {
-            config: Mutex::new(config),
+            config: Arc::new(Mutex::new(config)),
         }
     }
 

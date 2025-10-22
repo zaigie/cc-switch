@@ -38,6 +38,7 @@ interface ProviderListProps {
     duration?: number,
   ) => void;
   onProvidersUpdated?: () => Promise<void>;
+  operationMode?: "write" | "proxy";
 }
 
 // Sortable Provider Item Component
@@ -51,6 +52,8 @@ interface SortableProviderItemProps {
   onOpenUsageModal: (id: string) => void;
   onUrlClick: (url: string) => Promise<void>;
   appType: AppType;
+  operationMode: "write" | "proxy";
+  onToggleProxy?: (id: string, enabled: boolean) => Promise<void>;
   t: any;
 }
 
@@ -64,6 +67,8 @@ const SortableProviderItem: React.FC<SortableProviderItemProps> = ({
   onOpenUsageModal,
   onUrlClick,
   appType,
+  operationMode,
+  onToggleProxy,
   t,
 }) => {
   const {
@@ -91,12 +96,12 @@ const SortableProviderItem: React.FC<SortableProviderItemProps> = ({
       className={cn(
         // Base card styles without transitions that conflict with dragging
         "bg-white rounded-lg border p-4 dark:bg-gray-900",
-        // Different border colors based on state
-        isCurrent
+        // Different border colors based on state (only in write mode)
+        operationMode === "write" && isCurrent
           ? "border-blue-500 shadow-sm bg-blue-50 dark:border-blue-400 dark:bg-blue-400/10"
           : "border-gray-200 dark:border-gray-700",
         // Hover effects only when not dragging
-        !isDragging && !isCurrent && "hover:border-gray-300 hover:shadow-sm dark:hover:border-gray-600",
+        !isDragging && !(operationMode === "write" && isCurrent) && "hover:border-gray-300 hover:shadow-sm dark:hover:border-gray-600",
         // Shadow during drag
         isDragging && "shadow-lg",
         // Only apply transition when not dragging to prevent conflicts
@@ -119,15 +124,17 @@ const SortableProviderItem: React.FC<SortableProviderItemProps> = ({
             <h3 className="font-medium text-gray-900 dark:text-gray-100">
               {provider.name}
             </h3>
-            <div
-              className={cn(
-                badgeStyles.success,
-                !isCurrent && "invisible",
-              )}
-            >
-              <CheckCircle2 size={12} />
-              {t("provider.currentlyUsing")}
-            </div>
+            {operationMode === "write" && (
+              <div
+                className={cn(
+                  badgeStyles.success,
+                  !isCurrent && "invisible",
+                )}
+              >
+                <CheckCircle2 size={12} />
+                {t("provider.currentlyUsing")}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-sm">
@@ -156,19 +163,39 @@ const SortableProviderItem: React.FC<SortableProviderItemProps> = ({
         </div>
 
         <div className="flex items-center gap-2 ml-4">
-          <button
-            onClick={() => onSwitch(provider.id)}
-            disabled={isCurrent}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors w-[90px] justify-center whitespace-nowrap",
-              isCurrent
-                ? "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
-                : "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700",
-            )}
-          >
-            {isCurrent ? <Check size={14} /> : <Play size={14} />}
-            {isCurrent ? t("provider.inUse") : t("provider.enable")}
-          </button>
+          {operationMode === "proxy" ? (
+            // 代理模式：显示启用代理/关闭代理按钮
+            <button
+              onClick={() => {
+                const newEnabled = !provider.proxyEnabled;
+                onToggleProxy?.(provider.id, newEnabled);
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors min-w-[100px] justify-center whitespace-nowrap",
+                provider.proxyEnabled
+                  ? "bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700"
+                  : "bg-gray-500 text-white hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700",
+              )}
+            >
+              {provider.proxyEnabled ? <Check size={14} /> : <Play size={14} />}
+              {provider.proxyEnabled ? t("provider.disableProxy") : t("provider.enableProxy")}
+            </button>
+          ) : (
+            // 写入模式：显示启用按钮（单选）
+            <button
+              onClick={() => onSwitch(provider.id)}
+              disabled={isCurrent}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors w-[90px] justify-center whitespace-nowrap",
+                isCurrent
+                  ? "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
+                  : "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700",
+              )}
+            >
+              {isCurrent ? <Check size={14} /> : <Play size={14} />}
+              {isCurrent ? t("provider.inUse") : t("provider.enable")}
+            </button>
+          )}
 
           <button
             onClick={() => onEdit(provider.id)}
@@ -220,9 +247,32 @@ const ProviderList: React.FC<ProviderListProps> = ({
   appType,
   onNotify,
   onProvidersUpdated,
+  operationMode = "write",
 }) => {
   const { t, i18n } = useTranslation();
   const [usageModalProviderId, setUsageModalProviderId] = useState<string | null>(null);
+
+  // 处理代理模式下的供应商启用/禁用
+  const handleToggleProxy = async (providerId: string, enabled: boolean) => {
+    try {
+      console.log(`[ProviderList] 正在${enabled ? "启用" : "关闭"}代理供应商: ${providerId}, 应用类型: ${appType}`);
+      await window.api.toggleProxyProvider(providerId, enabled, appType);
+      console.log(`[ProviderList] ${enabled ? "启用" : "关闭"}代理供应商成功`);
+      onNotify?.(
+        enabled ? t("provider.proxyEnabled") : t("provider.proxyDisabled"),
+        "success",
+        2000
+      );
+      // 重新加载供应商列表
+      if (onProvidersUpdated) {
+        await onProvidersUpdated();
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("切换代理供应商失败:", error);
+      onNotify?.(`操作失败: ${errorMessage}`, "error", 4000);
+    }
+  };
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -390,6 +440,8 @@ const ProviderList: React.FC<ProviderListProps> = ({
                     onOpenUsageModal={setUsageModalProviderId}
                     onUrlClick={handleUrlClick}
                     appType={appType}
+                    operationMode={operationMode}
+                    onToggleProxy={handleToggleProxy}
                     t={t}
                   />
                 );

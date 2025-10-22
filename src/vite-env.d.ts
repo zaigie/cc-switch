@@ -145,6 +145,23 @@ declare global {
         updates: Array<{ id: string; sortIndex: number }>,
         app?: AppType,
       ) => Promise<boolean>;
+      // 切换供应商的代理启用状态
+      toggleProxyProvider: (
+        providerId: string,
+        enabled: boolean,
+        app?: AppType,
+      ) => Promise<boolean>;
+      // 处理运行模式变更
+      handleOperationModeChange: (
+        operationMode: string,
+        claudeCommonConfig?: string,
+        codexCommonConfig?: string,
+      ) => Promise<boolean>;
+      // 同步代理模式通用配置
+      syncProxyCommonConfig: (
+        claudeCommonConfig?: string,
+        codexCommonConfig?: string,
+      ) => Promise<boolean>;
       // app_config_dir override via Store
       getAppConfigDirOverride: () => Promise<string | null>;
       setAppConfigDirOverride: (path: string | null) => Promise<boolean>;

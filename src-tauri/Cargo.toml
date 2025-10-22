@@ -36,6 +36,14 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 futures = "0.3"
 regex = "1.10"
 rquickjs = { version = "0.8", features = ["array-buffer", "classes"] }
+axum = "0.7"
+hyper = { version = "1.0", features = ["client", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "http2", "tokio"] }
+hyper-rustls = { version = "0.27", features = ["http1", "http2", "webpki-roots", "ring"] }
+rustls = { version = "0.23", features = ["ring"] }
+tower = "0.4"
+http-body-util = "0.1"
+url = "2.5"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"

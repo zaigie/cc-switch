@@ -25,6 +25,10 @@ pub struct Provider {
     /// 供应商元数据（不写入 live 配置，仅存于 ~/.cc-switch/config.json）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta: Option<ProviderMeta>,
+    /// 代理模式下是否启用此供应商（仅在代理模式下有效）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "proxyEnabled")]
+    pub proxy_enabled: Option<bool>,
 }
 
 impl Provider {
@@ -44,6 +48,7 @@ impl Provider {
             created_at: None,
             sort_index: None,
             meta: None,
+            proxy_enabled: None,
         }
     }
 }

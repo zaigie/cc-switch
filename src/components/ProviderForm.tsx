@@ -195,6 +195,21 @@ const ProviderForm: React.FC<ProviderFormProps> = ({
   // 对于 Codex，需要分离 auth 和 config
   const isCodex = appType === "codex";
 
+  // 获取当前运行模式
+  const [operationMode, setOperationMode] = useState<"write" | "proxy">("write");
+
+  useEffect(() => {
+    const loadOperationMode = async () => {
+      try {
+        const settings = await window.api.getSettings();
+        setOperationMode((settings as any).operationMode ?? "write");
+      } catch (error) {
+        console.error("获取运行模式失败:", error);
+      }
+    };
+    loadOperationMode();
+  }, []);
+
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     websiteUrl: initialData?.websiteUrl || "",
@@ -1838,6 +1853,7 @@ const ProviderForm: React.FC<ProviderFormProps> = ({
                 }}
                 isTemplateModalOpen={isCodexTemplateModalOpen}
                 setIsTemplateModalOpen={setIsCodexTemplateModalOpen}
+                operationMode={operationMode}
               />
             ) : (
               <>
@@ -1910,6 +1926,7 @@ const ProviderForm: React.FC<ProviderFormProps> = ({
                   onCommonConfigSnippetChange={handleCommonConfigSnippetChange}
                   commonConfigError={commonConfigError}
                   configError={settingsConfigError}
+                  operationMode={operationMode}
                 />
               </>
             )}

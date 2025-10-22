@@ -13,6 +13,7 @@ interface ClaudeConfigEditorProps {
   onCommonConfigSnippetChange: (value: string) => void;
   commonConfigError: string;
   configError: string;
+  operationMode?: "write" | "proxy";
 }
 
 const ClaudeConfigEditor: React.FC<ClaudeConfigEditorProps> = ({
@@ -24,6 +25,7 @@ const ClaudeConfigEditor: React.FC<ClaudeConfigEditorProps> = ({
   onCommonConfigSnippetChange,
   commonConfigError,
   configError,
+  operationMode = "write",
 }) => {
   const { t } = useTranslation();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -86,25 +88,42 @@ const ClaudeConfigEditor: React.FC<ClaudeConfigEditorProps> = ({
         >
           {t("claudeConfig.configLabel")}
         </label>
-        <label className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 cursor-pointer">
+        <label className={`inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 ${operationMode === "proxy" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
           <input
             type="checkbox"
-            checked={useCommonConfig}
+            checked={operationMode === "proxy" ? true : useCommonConfig}
             onChange={(e) => onCommonConfigToggle(e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+            disabled={operationMode === "proxy"}
+            className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2 disabled:cursor-not-allowed"
           />
           {t("claudeConfig.writeCommonConfig")}
         </label>
       </div>
-      <div className="flex items-center justify-end">
-        <button
-          type="button"
-          onClick={() => setIsCommonConfigModalOpen(true)}
-          className="text-xs text-blue-500 dark:text-blue-400 hover:underline"
-        >
-          {t("claudeConfig.editCommonConfig")}
-        </button>
-      </div>
+      {operationMode === "proxy" && (
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-amber-600 dark:text-amber-400">
+            {t("claudeConfig.proxyModeHint")}
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsCommonConfigModalOpen(true)}
+            className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            {t("claudeConfig.editCommonConfig")}
+          </button>
+        </div>
+      )}
+      {operationMode !== "proxy" && (
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => setIsCommonConfigModalOpen(true)}
+            className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            {t("claudeConfig.editCommonConfig")}
+          </button>
+        </div>
+      )}
       {commonConfigError && !isCommonConfigModalOpen && (
         <p className="text-xs text-red-500 dark:text-red-400 text-right">
           {commonConfigError}

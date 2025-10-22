@@ -60,6 +60,8 @@ export default function SettingsModal({
     claudeConfigDir: undefined,
     codexConfigDir: undefined,
     language: persistedLanguage,
+    operationMode: "write",
+    proxyRetryCount: 1,
   });
   // appConfigDir 现在从 Store 独立管理
   const [appConfigDir, setAppConfigDir] = useState<string | undefined>(
@@ -68,6 +70,7 @@ export default function SettingsModal({
   const [initialLanguage, setInitialLanguage] = useState<"zh" | "en">(
     persistedLanguage,
   );
+  const [initialOperationMode, setInitialOperationMode] = useState<"write" | "proxy">("write");
   const [configPath, setConfigPath] = useState<string>("");
   const [version, setVersion] = useState<string>("");
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -148,6 +151,8 @@ export default function SettingsModal({
           : persistedLanguage,
       );
 
+      const operationMode = (loadedSettings as any)?.operationMode === "proxy" ? "proxy" : "write";
+
       setSettings({
         showInTray,
         minimizeToTrayOnClose,
@@ -165,8 +170,14 @@ export default function SettingsModal({
             ? (loadedSettings as any).codexConfigDir
             : undefined,
         language: storedLanguage,
+        operationMode,
+        proxyRetryCount:
+          typeof (loadedSettings as any)?.proxyRetryCount === "number"
+            ? (loadedSettings as any).proxyRetryCount
+            : 1,
       });
       setInitialLanguage(storedLanguage);
+      setInitialOperationMode(operationMode);
       if (i18n.language !== storedLanguage) {
         void i18n.changeLanguage(storedLanguage);
       }
@@ -224,7 +235,8 @@ export default function SettingsModal({
         language: selectedLanguage,
       };
 
-      // 保存 settings.json (不包含 appConfigDir)
+      const operationModeChanged = (payload.operationMode ?? "write") !== initialOperationMode;
+
       await window.api.saveSettings(payload);
 
       // 单独保存 appConfigDir 到 Store
@@ -245,6 +257,31 @@ export default function SettingsModal({
         console.warn("[Settings] Apply Claude plugin config on save failed", e);
       }
 
+      // 如果代理模式发生变化，调用代理模式切换处理
+      if (operationModeChanged) {
+        try {
+          // 从 localStorage 读取通用配置
+          let claudeCommonConfig: string | undefined;
+          let codexCommonConfig: string | undefined;
+
+          try {
+            claudeCommonConfig = window.localStorage.getItem("cc-switch:common-config-snippet") || undefined;
+            codexCommonConfig = window.localStorage.getItem("cc-switch:codex-common-config-snippet") || undefined;
+          } catch {
+            // ignore localStorage 读取失败
+          }
+
+          // 调用后端切换模式，传入通用配置
+          await (window as any).api.handleOperationModeChange(
+            payload.operationMode ?? "write",
+            claudeCommonConfig,
+            codexCommonConfig,
+          );
+        } catch (e) {
+          console.error("[Settings] 代理模式切换失败:", e);
+        }
+      }
+
       // 检测 appConfigDir 是否真正发生变化
       const appConfigDirChanged =
         (normalizedAppConfigDir || undefined) !==
@@ -252,6 +289,7 @@ export default function SettingsModal({
 
       setSettings(payload);
       setInitialAppConfigDir(normalizedAppConfigDir ?? undefined);
+      setInitialOperationMode(payload.operationMode ?? "write");
       try {
         window.localStorage.setItem("language", selectedLanguage);
       } catch (error) {
@@ -260,6 +298,11 @@ export default function SettingsModal({
       setInitialLanguage(selectedLanguage);
       if (i18n.language !== selectedLanguage) {
         void i18n.changeLanguage(selectedLanguage);
+      }
+
+      // 如果代理模式发生变化，通知父组件刷新供应商列表和代理模式状态
+      if (operationModeChanged && onImportSuccess) {
+        await onImportSuccess();
       }
 
       // 如果修改了 appConfigDir,需要提示用户重启应用程序
@@ -638,6 +681,65 @@ export default function SettingsModal({
                 {t("settings.languageOptionEnglish")}
               </button>
             </div>
+          </div>
+
+          {/* 代理模式设置 */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+              {t("settings.operationMode")}
+            </h3>
+            <div className="flex items-center gap-3">
+              <div className="inline-flex p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setSettings((prev) => ({ ...prev, operationMode: "write" }))}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all min-w-[80px] ${
+                    (settings.operationMode ?? "write") === "write"
+                      ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                >
+                  {t("settings.operationModeWrite")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettings((prev) => ({ ...prev, operationMode: "proxy" }))}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all min-w-[80px] ${
+                    settings.operationMode === "proxy"
+                      ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                >
+                  {t("settings.operationModeProxy")}
+                </button>
+              </div>
+              {settings.operationMode === "proxy" && (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-500 dark:text-gray-400">
+                    {t("settings.proxyRetryCount")}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={settings.proxyRetryCount ?? 1}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (!isNaN(value) && value >= 0) {
+                        setSettings((prev) => ({ ...prev, proxyRetryCount: value }));
+                      }
+                    }}
+                    placeholder={t("settings.proxyRetryCountPlaceholder")}
+                    className="w-20 px-2 py-1 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                </div>
+              )}
+            </div>
+            {settings.operationMode === "proxy" && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {t("settings.proxyRetryCountDescription")}
+              </p>
+            )}
           </div>
 
           {/* 窗口行为设置 */}
